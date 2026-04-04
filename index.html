@@ -14,7 +14,7 @@
       <header class="topbar">
         <div>
           <h1>カード価格比較アプリ</h1>
-          <p class="sub">Supabase + 静的HTML の最小構成</p>
+          <p class="sub">基準となる最高販売価格と、実際の査定結果の乖離をグループ単位で管理</p>
         </div>
         <div id="userArea" class="user-area hidden">
           <span id="userEmail" class="user-email"></span>
@@ -26,9 +26,7 @@
 
       <section id="authSection" class="panel">
         <h2>ログイン</h2>
-        <p class="help">
-          メールアドレスにマジックリンクを送ります。スマホやタブレットでも同じURLを開けば使えます。
-        </p>
+        <p class="help">メールアドレスにマジックリンクを送ります。スマホやタブレットでも同じ URL から利用できます。</p>
         <form id="loginForm" class="stack">
           <label>
             メールアドレス
@@ -39,7 +37,7 @@
       </section>
 
       <section id="appSection" class="hidden">
-        <div class="grid two">
+        <div class="grid two-wide">
           <section class="panel">
             <div id="editModeBar" class="mode-bar hidden">
               <div>
@@ -52,6 +50,13 @@
             <h2>カードを登録 / 編集</h2>
             <form id="cardForm" class="stack">
               <label>
+                査定グループ名
+                <input id="groupNameInput" type="text" placeholder="例: 2026-04-01査定分" list="groupSuggestions" required />
+                <datalist id="groupSuggestions"></datalist>
+              </label>
+              <p class="help">同じ日にまとめて売るカード群などを、1つのグループとして管理します。</p>
+
+              <label>
                 カード画像
                 <input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" />
               </label>
@@ -62,27 +67,46 @@
                 <input id="cardNameInput" type="text" placeholder="例: ピカチュウex" required />
               </label>
 
-              <div>
-                <div class="row between center section-head">
-                  <h3>店舗ごとの比較情報</h3>
-                  <button id="addStoreBtn" type="button" class="secondary small">行を追加</button>
+              <div class="baseline-panel">
+                <div class="section-head stacked-gap">
+                  <h3>基準となる最高販売価格</h3>
+                  <p class="help">ここは理論値の基準点です。実査定の入力欄とは分けて扱います。</p>
                 </div>
-                <p class="help">1行ごとに「店名」「最高販売価格」「査定後の価格」を入力します。差額は自動計算されます。</p>
-                <div id="storesContainer" class="stack compact"></div>
+                <div class="baseline-grid">
+                  <label>
+                    基準価格を記録した店舗名
+                    <input id="baselineShopNameInput" type="text" placeholder="例: A店" required />
+                  </label>
+                  <label>
+                    基準となる最高販売価格（円）
+                    <input id="baselineHighestPriceInput" type="number" min="0" step="1" placeholder="例: 12000" required />
+                  </label>
+                </div>
               </div>
 
-              <div class="summary-box summary-grid">
+              <div>
+                <div class="row between center section-head">
+                  <div>
+                    <h3>実際の査定結果</h3>
+                    <p class="help">B店、C店など、実際に査定を出した店舗を追加していきます。</p>
+                  </div>
+                  <button id="addAppraisalBtn" type="button" class="secondary small">査定結果を追加</button>
+                </div>
+                <div id="appraisalsContainer" class="stack compact"></div>
+              </div>
+
+              <div class="summary-box summary-grid three">
                 <div>
-                  <div class="meta">最高販売価格</div>
-                  <strong id="maxPricePreview">0円</strong>
+                  <div class="meta">基準となる最高販売価格</div>
+                  <strong id="baselinePreview">0円</strong>
                 </div>
                 <div>
                   <div class="meta">最高査定価格</div>
                   <strong id="maxAppraisalPreview">0円</strong>
                 </div>
                 <div>
-                  <div class="meta">最大差額</div>
-                  <strong id="diffPreview">0円</strong>
+                  <div class="meta">基準との差額</div>
+                  <strong id="gapPreview">0円</strong>
                 </div>
               </div>
 
@@ -93,20 +117,24 @@
           <section class="panel">
             <h2>使い方メモ</h2>
             <ol class="tips">
-              <li>画像とカード名を入力します。</li>
-              <li>店舗ごとに販売価格と査定価格を追加します。</li>
-              <li>各行の差額と、上部の集計は自動計算されます。</li>
-              <li>登録済みカードの「編集」から内容を修正できます。</li>
+              <li>最初に「査定グループ名」を決めて、その日にまとめて売るカードを同じグループへ入れます。</li>
+              <li>カードごとに「基準となる最高販売価格」を1件だけ登録します。</li>
+              <li>その下に、実際に査定を出した店舗をどんどん追加します。</li>
+              <li>カードごとの最高査定価格と、基準との差額は自動計算されます。</li>
+              <li>グループごとに合計の基準価格・最高査定価格・差額を確認できます。</li>
             </ol>
           </section>
         </div>
 
         <section class="panel list-panel">
-          <div class="row between center">
-            <h2>登録済みカード</h2>
+          <div class="row between center wrap-gap">
+            <div>
+              <h2>登録済みカード</h2>
+              <p class="help">グループごとにまとめて表示します。横幅が広い端末ではカードが自動で多列表示されます。</p>
+            </div>
             <button id="reloadBtn" type="button" class="secondary small">再読み込み</button>
           </div>
-          <div id="cardsList" class="cards-list"></div>
+          <div id="groupsList" class="groups-list"></div>
         </section>
       </section>
     </div>

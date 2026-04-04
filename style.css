@@ -1,16 +1,20 @@
 :root {
-  --bg: #f6f7fb;
+  --bg: #f6f8fb;
   --panel: #ffffff;
-  --text: #1f2937;
-  --muted: #6b7280;
-  --line: #e5e7eb;
+  --line: #dbe3ef;
+  --text: #0f172a;
+  --muted: #64748b;
   --primary: #2563eb;
   --danger: #dc2626;
-  --success: #047857;
+  --success: #059669;
+  --warning-bg: #fff7ed;
+  --warning-line: #fdba74;
+  --warning-text: #c2410c;
   --shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
 }
 
 * { box-sizing: border-box; }
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -19,7 +23,7 @@ body {
 }
 
 .container {
-  max-width: 1280px;
+  max-width: 1680px;
   margin: 0 auto;
   padding: 20px;
 }
@@ -37,7 +41,7 @@ h1 { font-size: 28px; }
 h2 { font-size: 20px; margin-bottom: 12px; }
 h3 { font-size: 16px; }
 .sub, .help, .meta, .user-email { color: var(--muted); }
-.help { font-size: 14px; }
+.help { font-size: 14px; line-height: 1.6; }
 
 .panel {
   background: var(--panel);
@@ -48,10 +52,11 @@ h3 { font-size: 16px; }
   margin-bottom: 16px;
 }
 
-.grid.two {
+.grid.two-wide {
   display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
+  grid-template-columns: minmax(420px, 680px) minmax(260px, 1fr);
   gap: 16px;
+  align-items: start;
 }
 
 .stack {
@@ -114,7 +119,9 @@ button:disabled {
 
 .row.between { justify-content: space-between; }
 .row.center { align-items: center; }
+.wrap-gap { gap: 12px; flex-wrap: wrap; }
 .section-head { margin-bottom: 8px; }
+.stacked-gap { display: grid; gap: 4px; }
 
 .mode-bar {
   border: 1px solid #bfdbfe;
@@ -129,9 +136,22 @@ button:disabled {
   align-items: center;
 }
 
-.comparison-row {
+.baseline-panel {
+  border: 1px solid #dbeafe;
+  background: #f8fbff;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.baseline-grid {
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr 0.9fr 0.7fr auto;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 12px;
+}
+
+.appraisal-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(130px, 180px) minmax(120px, 150px) auto;
   gap: 10px;
   align-items: end;
   padding: 12px;
@@ -140,7 +160,7 @@ button:disabled {
   background: #fbfdff;
 }
 
-.row-diff-box {
+.row-gap-box {
   border: 1px dashed #cbd5e1;
   border-radius: 10px;
   min-height: 46px;
@@ -151,18 +171,10 @@ button:disabled {
   background: #fff;
 }
 
-.row-diff-box .label {
+.row-gap-box .label {
   font-size: 12px;
   color: var(--muted);
   margin-bottom: 4px;
-}
-
-.row-diff-box strong.negative {
-  color: var(--danger);
-}
-
-.row-diff-box strong.positive {
-  color: var(--success);
 }
 
 .summary-box {
@@ -174,28 +186,63 @@ button:disabled {
 
 .summary-grid {
   display: grid;
+  gap: 12px;
+}
+
+.summary-grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.groups-list {
+  display: grid;
+  gap: 18px;
+}
+
+.group-block {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fdfefe;
+  padding: 14px;
+}
+
+.group-header {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.group-summary {
+  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
-.cards-list {
+.group-summary .summary-cell {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  padding: 12px;
+}
+
+.group-cards-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 14px;
 }
 
 .card-item {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   border: 1px solid var(--line);
   border-radius: 16px;
-  padding: 14px;
+  padding: 12px;
   background: #fff;
+  min-width: 0;
 }
 
 .card-image {
   width: 100%;
-  height: 180px;
+  height: 168px;
   object-fit: contain;
   border-radius: 12px;
   border: 1px solid var(--line);
@@ -205,15 +252,32 @@ button:disabled {
 .card-body {
   display: grid;
   gap: 10px;
+  min-width: 0;
 }
 
-.price-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.card-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
   gap: 10px;
 }
 
-.price-box {
+.card-baseline-box {
+  border: 1px solid #dbeafe;
+  background: #f8fbff;
+  border-radius: 12px;
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.card-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.metric-box {
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 10px;
@@ -226,28 +290,25 @@ button:disabled {
   flex-wrap: wrap;
 }
 
-.store-table {
+.appraisal-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 14px;
+  table-layout: fixed;
 }
 
-.store-table th,
-.store-table td {
+.appraisal-table th,
+.appraisal-table td {
   text-align: left;
   padding: 8px 10px;
   border-bottom: 1px solid var(--line);
   vertical-align: top;
+  word-break: break-word;
 }
 
-.store-table td.diff-negative,
-.store-table strong.diff-negative {
-  color: var(--danger);
-}
-
-.store-table td.diff-positive,
-.store-table strong.diff-positive {
-  color: var(--success);
+.appraisal-table th:last-child,
+.appraisal-table td:last-child {
+  width: 110px;
 }
 
 .message {
@@ -270,13 +331,13 @@ button:disabled {
 }
 
 .hidden { display: none !important; }
+
 .empty {
   padding: 18px;
   border: 1px dashed #cbd5e1;
   border-radius: 12px;
   color: var(--muted);
   text-align: center;
-  grid-column: 1 / -1;
 }
 
 .tips {
@@ -286,23 +347,37 @@ button:disabled {
   gap: 10px;
 }
 
-@media (max-width: 1024px) {
-  .cards-list {
+.gap-loss {
+  color: var(--danger);
+}
+
+.gap-gain {
+  color: var(--success);
+}
+
+@media (max-width: 1100px) {
+  .grid.two-wide {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 860px) {
-  .grid.two,
-  .summary-grid,
-  .price-grid,
-  .comparison-row {
+@media (max-width: 900px) {
+  .baseline-grid,
+  .summary-grid.three,
+  .group-summary,
+  .card-metrics,
+  .appraisal-row {
     grid-template-columns: 1fr;
   }
 
   .topbar,
-  .mode-bar {
+  .mode-bar,
+  .card-title-row {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .group-cards-grid {
+    grid-template-columns: 1fr;
   }
 }
