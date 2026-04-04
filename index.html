@@ -41,48 +41,62 @@
       <section id="appSection" class="hidden">
         <div class="grid two">
           <section class="panel">
-            <h2>カードを登録</h2>
+            <div id="editModeBar" class="mode-bar hidden">
+              <div>
+                <strong>編集モード</strong>
+                <p id="editModeText" class="meta">登録済みカードを編集中です。</p>
+              </div>
+              <button id="cancelEditBtn" type="button" class="secondary small">新規登録に戻す</button>
+            </div>
+
+            <h2>カードを登録 / 編集</h2>
             <form id="cardForm" class="stack">
               <label>
                 カード画像
-                <input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" required />
+                <input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" />
               </label>
-              <p class="help">簡単実装のため、6MB以下の画像に制限しています。</p>
+              <p class="help">新規登録時は必須です。編集時は画像を選ばなければ現在の画像をそのまま使います。6MB以下に制限しています。</p>
 
               <label>
                 カード名
                 <input id="cardNameInput" type="text" placeholder="例: ピカチュウex" required />
               </label>
 
-              <label>
-                査定後の価格（円）
-                <input id="appraisalInput" type="number" min="0" step="1" placeholder="例: 4200" required />
-              </label>
-
               <div>
-                <div class="row between center">
-                  <h3>店舗ごとの最高販売価格</h3>
-                  <button id="addStoreBtn" type="button" class="secondary small">店舗を追加</button>
+                <div class="row between center section-head">
+                  <h3>店舗ごとの比較情報</h3>
+                  <button id="addStoreBtn" type="button" class="secondary small">行を追加</button>
                 </div>
+                <p class="help">1行ごとに「店名」「最高販売価格」「査定後の価格」を入力します。差額は自動計算されます。</p>
                 <div id="storesContainer" class="stack compact"></div>
               </div>
 
-              <div class="summary-box">
-                <div>店舗最高値: <strong id="maxPricePreview">0円</strong></div>
-                <div>差額: <strong id="diffPreview">0円</strong></div>
+              <div class="summary-box summary-grid">
+                <div>
+                  <div class="meta">最高販売価格</div>
+                  <strong id="maxPricePreview">0円</strong>
+                </div>
+                <div>
+                  <div class="meta">最高査定価格</div>
+                  <strong id="maxAppraisalPreview">0円</strong>
+                </div>
+                <div>
+                  <div class="meta">最大差額</div>
+                  <strong id="diffPreview">0円</strong>
+                </div>
               </div>
 
-              <button id="saveBtn" type="submit">保存する</button>
+              <button id="saveBtn" type="submit">カードを登録</button>
             </form>
           </section>
 
           <section class="panel">
             <h2>使い方メモ</h2>
             <ol class="tips">
-              <li>画像、カード名、査定額を入力します。</li>
-              <li>店舗名と最高販売価格を必要な件数だけ追加します。</li>
-              <li>店舗最高値と差額は自動計算されます。</li>
-              <li>保存後、下の一覧で比較結果を確認できます。</li>
+              <li>画像とカード名を入力します。</li>
+              <li>店舗ごとに販売価格と査定価格を追加します。</li>
+              <li>各行の差額と、上部の集計は自動計算されます。</li>
+              <li>登録済みカードの「編集」から内容を修正できます。</li>
             </ol>
           </section>
         </div>
