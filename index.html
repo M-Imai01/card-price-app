@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>カード価格比較アプリ</title>
+    <link rel="stylesheet" href="./style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./config.js"></script>
+    <script defer src="./app.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <header class="topbar">
+        <div>
+          <h1>カード価格比較アプリ</h1>
+          <p class="sub">Supabase + 静的HTML の最小構成</p>
+        </div>
+        <div id="userArea" class="user-area hidden">
+          <span id="userEmail" class="user-email"></span>
+          <button id="signOutBtn" class="secondary">ログアウト</button>
+        </div>
+      </header>
+
+      <section id="message" class="message hidden"></section>
+
+      <section id="authSection" class="panel">
+        <h2>ログイン</h2>
+        <p class="help">
+          メールアドレスにマジックリンクを送ります。スマホやタブレットでも同じURLを開けば使えます。
+        </p>
+        <form id="loginForm" class="stack">
+          <label>
+            メールアドレス
+            <input id="emailInput" type="email" placeholder="you@example.com" required />
+          </label>
+          <button type="submit">マジックリンクを送信</button>
+        </form>
+      </section>
+
+      <section id="appSection" class="hidden">
+        <div class="grid two">
+          <section class="panel">
+            <h2>カードを登録</h2>
+            <form id="cardForm" class="stack">
+              <label>
+                カード画像
+                <input id="imageInput" type="file" accept="image/png,image/jpeg,image/webp" required />
+              </label>
+              <p class="help">簡単実装のため、6MB以下の画像に制限しています。</p>
+
+              <label>
+                カード名
+                <input id="cardNameInput" type="text" placeholder="例: ピカチュウex" required />
+              </label>
+
+              <label>
+                査定後の価格（円）
+                <input id="appraisalInput" type="number" min="0" step="1" placeholder="例: 4200" required />
+              </label>
+
+              <div>
+                <div class="row between center">
+                  <h3>店舗ごとの最高販売価格</h3>
+                  <button id="addStoreBtn" type="button" class="secondary small">店舗を追加</button>
+                </div>
+                <div id="storesContainer" class="stack compact"></div>
+              </div>
+
+              <div class="summary-box">
+                <div>店舗最高値: <strong id="maxPricePreview">0円</strong></div>
+                <div>差額: <strong id="diffPreview">0円</strong></div>
+              </div>
+
+              <button id="saveBtn" type="submit">保存する</button>
+            </form>
+          </section>
+
+          <section class="panel">
+            <h2>使い方メモ</h2>
+            <ol class="tips">
+              <li>画像、カード名、査定額を入力します。</li>
+              <li>店舗名と最高販売価格を必要な件数だけ追加します。</li>
+              <li>店舗最高値と差額は自動計算されます。</li>
+              <li>保存後、下の一覧で比較結果を確認できます。</li>
+            </ol>
+          </section>
+        </div>
+
+        <section class="panel list-panel">
+          <div class="row between center">
+            <h2>登録済みカード</h2>
+            <button id="reloadBtn" type="button" class="secondary small">再読み込み</button>
+          </div>
+          <div id="cardsList" class="cards-list"></div>
+        </section>
+      </section>
+    </div>
+  </body>
+</html>
