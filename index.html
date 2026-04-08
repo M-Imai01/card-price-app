@@ -14,7 +14,7 @@
       <header class="topbar">
         <div>
           <h1>カード価格比較アプリ</h1>
-          <p class="sub">基準とする最大価格と実査定の乖離を、カード単位・グループ単位で管理</p>
+          <p class="sub">基準とする最大価格と実際の査定価格を、カード単位・カードグループ単位で比較管理</p>
         </div>
         <div id="userArea" class="user-area hidden">
           <span id="userEmail" class="user-email"></span>
@@ -24,7 +24,7 @@
 
       <section id="message" class="message hidden"></section>
 
-      <section id="authSection" class="panel">
+      <section id="authSection" class="panel auth-panel">
         <h2>ログイン</h2>
         <p class="help">メールアドレスにマジックリンクを送ります。スマホやタブレットでも同じ URL から利用できます。</p>
         <form id="loginForm" class="stack">
@@ -50,11 +50,11 @@
             <h2>カードを登録 / 編集</h2>
             <form id="cardForm" class="stack">
               <label>
-                査定グループ名
+                カードグループ
                 <input id="groupNameInput" type="text" placeholder="例: 2026-04-01査定分" list="groupSuggestions" required />
                 <datalist id="groupSuggestions"></datalist>
               </label>
-              <p class="help">同じ日にまとめて売るカード群などを、1つのグループとして管理します。</p>
+              <p class="help">同じ日にまとめて売るカード群などを、1つのカードグループとして管理します。</p>
 
               <label>
                 カード画像
@@ -71,7 +71,7 @@
                 <div class="row between center wrap-gap section-head">
                   <div>
                     <h3>基準とする最大価格</h3>
-                    <p class="help">理論値・参考値として扱う価格です。実査定とは別枠で管理します。</p>
+                    <p class="help">最初の1件が基準とする最大価格です。2件目以降は参考にする価格として扱います。</p>
                   </div>
                   <button id="addBaselineBtn" type="button" class="secondary small">参考価格を追加</button>
                 </div>
@@ -96,7 +96,7 @@
                 </div>
                 <div>
                   <div class="meta">最高査定価格</div>
-                  <strong id="maxAppraisalPreview">0円</strong>
+                  <strong id="maxAppraisalPreview" class="accent-red">0円</strong>
                 </div>
                 <div>
                   <div class="meta">最大差額</div>
@@ -111,11 +111,12 @@
           <section class="panel tips-panel">
             <h2>使い方メモ</h2>
             <ol class="tips">
-              <li>先に「査定グループ名」を決めて、同日に売るカードをまとめます。</li>
+              <li>先にカードグループ名を決めて、同日に売るカードをまとめます。</li>
               <li>カードごとに「基準とする最大価格」を 1 件以上登録します。</li>
-              <li>実査定は別枠でどんどん追加し、価格差を見ます。</li>
-              <li>数量を変えると、総額ベースで基準価格・査定価格・差額を比較できます。</li>
-              <li>カード単位・グループ単位で複製もできます。</li>
+              <li>2件目以降の参考価格も登録できます。</li>
+              <li>実査定は別枠でどんどん追加し、基準との差額を見ます。</li>
+              <li>数量を変えると、総額ベースで比較できます。</li>
+              <li>カード単位・グループ単位で複製できます。</li>
             </ol>
           </section>
         </div>
@@ -124,7 +125,7 @@
           <div class="row between center wrap-gap">
             <div>
               <h2>登録済みカード</h2>
-              <p class="help">カードグループごとにまとめて表示します。スマホでも最低 2 列、横幅が広い端末では 3〜4 列表示になります。</p>
+              <p class="help">カードグループごとにまとめて表示します。どの端末でも最低2列表示、広い画面では3〜4列表示になります。</p>
             </div>
             <button id="reloadBtn" type="button" class="secondary small">再読み込み</button>
           </div>

@@ -74,57 +74,50 @@ function sanitizeFileName(name) {
   return String(name).replace(/[^a-zA-Z0-9._-]/g, '_')
 }
 
-function getDiffClass(value) {
-  const n = Number(value || 0)
-  if (n > 0) return 'diff-positive'
-  if (n < 0) return 'diff-negative'
-  return ''
-}
-
 function calcTotal(price, quantity) {
   return Number(price || 0) * Number(quantity || 0)
 }
 
 function baselineLabel(index) {
-  return index === 0 ? '基準とする最大価格' : `基準とする最大価格 ${index + 1}`
+  if (index === 0) return '基準とする最大価格'
+  if (index === 1) return '参考にする価格'
+  return `参考にする価格${index}`
 }
 
-function currentIso() {
-  return new Date().toISOString()
-}
-
-function sortByOrderThenCreated(items) {
+function sortBaselines(items) {
   return [...(items || [])].sort((a, b) => {
-    const orderDiff = Number(a.label_order || 0) - Number(b.label_order || 0)
-    if (orderDiff !== 0) return orderDiff
+    const labelDiff = Number(a.label_order || 0) - Number(b.label_order || 0)
+    if (labelDiff !== 0) return labelDiff
     return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
   })
 }
 
+function sortAppraisals(items) {
+  return [...(items || [])].sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime())
+}
+
 function computeMetrics(baselines, appraisals) {
-  const baselineEntries = (baselines || []).map((row) => ({
+  const normalizedBaselines = sortBaselines(baselines).map((row, index) => ({
     ...row,
-    total: calcTotal(row.referencePrice ?? row.reference_price, row.quantity)
+    label: baselineLabel(index),
+    total: calcTotal(row.reference_price ?? row.referencePrice, row.quantity)
   }))
-  const appraisalEntries = (appraisals || []).map((row) => ({
+  const normalizedAppraisals = sortAppraisals(appraisals).map((row) => ({
     ...row,
-    total: calcTotal(row.appraisalPrice ?? row.appraisal_price, row.quantity)
+    total: calcTotal(row.appraisal_price ?? row.appraisalPrice, row.quantity)
   }))
 
-  const bestBaseline = baselineEntries.reduce((best, row) => row.total > (best?.total ?? -1) ? row : best, null)
-  const bestAppraisal = appraisalEntries.reduce((best, row) => row.total > (best?.total ?? -1) ? row : best, null)
-  const baselineMaxTotal = bestBaseline?.total ?? 0
-  const maxAppraisalTotal = bestAppraisal?.total ?? 0
-  const gap = baselineMaxTotal - maxAppraisalTotal
+  const bestBaseline = normalizedBaselines.reduce((best, row) => row.total > (best?.total ?? -1) ? row : best, null)
+  const bestAppraisal = normalizedAppraisals.reduce((best, row) => row.total > (best?.total ?? -1) ? row : best, null)
 
   return {
-    baselineMaxTotal,
-    maxAppraisalTotal,
-    gap,
+    baselines: normalizedBaselines,
+    appraisals: normalizedAppraisals,
     bestBaseline,
     bestAppraisal,
-    baselineEntries,
-    appraisalEntries
+    baselineMaxTotal: bestBaseline?.total ?? 0,
+    maxAppraisalTotal: bestAppraisal?.total ?? 0,
+    gap: (bestBaseline?.total ?? 0) - (bestAppraisal?.total ?? 0)
   }
 }
 
@@ -136,148 +129,95 @@ function updateGroupSuggestions() {
 
 function renumberBaselineRows() {
   ;[...baselinesContainer.querySelectorAll('.baseline-row')].forEach((row, index) => {
-    row.dataset.order = String(index + 1)
-    const titleEl = row.querySelector('.entry-title strong')
-    if (titleEl) titleEl.textContent = baselineLabel(index)
+    const title = row.querySelector('.baseline-row-title')
+    if (title) title.textContent = baselineLabel(index)
   })
 }
 
-function collectBaselineRows() {
-  return [...baselinesContainer.querySelectorAll('.baseline-row')]
-    .map((row, index) => {
-      const shopName = row.querySelector('.baseline-shop-name').value.trim()
-      const referencePrice = Number(row.querySelector('.baseline-reference-price').value || 0)
-      const quantity = Number(row.querySelector('.baseline-quantity').value || 1)
-      return {
-        labelOrder: index + 1,
-        shopName,
-        referencePrice,
-        quantity
-      }
-    })
-    .filter((row) => row.shopName && Number.isFinite(row.referencePrice) && row.referencePrice >= 0 && Number.isFinite(row.quantity) && row.quantity >= 1)
-}
-
-function collectAppraisalRows() {
-  return [...appraisalsContainer.querySelectorAll('.appraisal-row')]
-    .map((row) => {
-      const shopName = row.querySelector('.appraisal-shop-name').value.trim()
-      const appraisalPrice = Number(row.querySelector('.appraisal-price').value || 0)
-      const quantity = Number(row.querySelector('.appraisal-quantity').value || 1)
-      return {
-        shopName,
-        appraisalPrice,
-        quantity
-      }
-    })
-    .filter((row) => row.shopName && Number.isFinite(row.appraisalPrice) && row.appraisalPrice >= 0 && Number.isFinite(row.quantity) && row.quantity >= 1)
-}
-
-function updatePreview() {
-  const baselines = collectBaselineRows()
-  const appraisals = collectAppraisalRows()
-  const metrics = computeMetrics(baselines, appraisals)
-
-  baselinePreview.textContent = formatYen(metrics.baselineMaxTotal)
-  maxAppraisalPreview.textContent = formatYen(metrics.maxAppraisalTotal)
-  gapPreview.textContent = formatYen(metrics.gap)
-  gapPreview.className = getDiffClass(metrics.gap)
-
-  ;[...baselinesContainer.querySelectorAll('.baseline-row')].forEach((row) => {
-    const price = Number(row.querySelector('.baseline-reference-price').value || 0)
-    const quantity = Number(row.querySelector('.baseline-quantity').value || 1)
-    row.querySelector('.row-total-value').textContent = formatYen(calcTotal(price, quantity))
-  })
-
-  ;[...appraisalsContainer.querySelectorAll('.appraisal-row')].forEach((row) => {
-    const price = Number(row.querySelector('.appraisal-price').value || 0)
-    const quantity = Number(row.querySelector('.appraisal-quantity').value || 1)
-    const total = calcTotal(price, quantity)
-    const diff = metrics.baselineMaxTotal - total
-    const totalEl = row.querySelector('.row-total-value')
-    const diffEl = row.querySelector('.row-diff-value')
-    totalEl.textContent = formatYen(total)
-    diffEl.textContent = formatYen(diff)
-    diffEl.className = `row-diff-value ${getDiffClass(diff)}`.trim()
-  })
-}
-
-function createBaselineRow(values = {}) {
+function createBaselineRow(data = {}) {
   const row = document.createElement('div')
   row.className = 'entry-row baseline-row'
   row.innerHTML = `
-    <div class="entry-title">
-      <strong>${baselineLabel(baselinesContainer.children.length)}</strong>
+    <div class="entry-row-top row between center wrap-gap">
+      <strong class="baseline-row-title"></strong>
       <button type="button" class="danger small remove-entry">削除</button>
     </div>
-    <div class="entry-grid">
+    <div class="entry-grid baseline-entry-grid">
       <label>
-        参考店舗名
-        <input type="text" class="baseline-shop-name" placeholder="例: A店" value="${escapeHtml(values.shop_name ?? values.shopName ?? '')}" />
+        店舗名
+        <input type="text" class="baseline-shop-name" placeholder="例: A店" value="${escapeHtml(data.shop_name || data.shopName || '')}" />
       </label>
       <label>
-        価格（1枚あたり円）
-        <input type="number" min="0" step="1" class="baseline-reference-price" placeholder="例: 7800" value="${values.reference_price ?? values.referencePrice ?? ''}" />
+        金額（円）
+        <input type="number" min="0" step="1" class="baseline-price" placeholder="例: 5980" value="${Number(data.reference_price ?? data.referencePrice ?? 0) || ''}" />
       </label>
       <label>
         数量
-        <input type="number" min="1" step="1" class="baseline-quantity" placeholder="1" value="${values.quantity ?? 1}" />
+        <input type="number" min="1" step="1" class="baseline-quantity" placeholder="1" value="${Number(data.quantity || 1)}" />
       </label>
-      <div class="total-box">
+      <div class="inline-total-box">
         <span class="meta">総額</span>
-        <strong class="row-total-value">0円</strong>
+        <strong class="baseline-total">0円</strong>
       </div>
-      <div></div>
     </div>
   `
 
+  const updateRowTotal = () => {
+    const price = Number(row.querySelector('.baseline-price').value || 0)
+    const quantity = Math.max(1, Number(row.querySelector('.baseline-quantity').value || 1))
+    row.querySelector('.baseline-total').textContent = formatYen(calcTotal(price, quantity))
+    updatePreview()
+  }
+
   row.querySelector('.remove-entry').addEventListener('click', () => {
     row.remove()
-    if (baselinesContainer.children.length === 0) createBaselineRow()
     renumberBaselineRows()
     updatePreview()
   })
 
   row.querySelectorAll('input').forEach((input) => {
-    input.addEventListener('input', updatePreview)
+    input.addEventListener('input', updateRowTotal)
   })
 
   baselinesContainer.appendChild(row)
   renumberBaselineRows()
-  updatePreview()
+  updateRowTotal()
 }
 
-function createAppraisalRow(values = {}) {
+function createAppraisalRow(data = {}) {
   const row = document.createElement('div')
   row.className = 'entry-row appraisal-row'
   row.innerHTML = `
-    <div class="entry-title">
+    <div class="entry-row-top row between center wrap-gap">
       <strong>査定価格</strong>
       <button type="button" class="danger small remove-entry">削除</button>
     </div>
-    <div class="entry-grid">
+    <div class="entry-grid appraisal-entry-grid">
       <label>
-        査定店舗名
-        <input type="text" class="appraisal-shop-name" placeholder="例: B店" value="${escapeHtml(values.shop_name ?? values.shopName ?? '')}" />
+        店舗名
+        <input type="text" class="appraisal-shop-name" placeholder="例: B店" value="${escapeHtml(data.shop_name || data.shopName || '')}" />
       </label>
       <label>
-        査定価格（1枚あたり円）
-        <input type="number" min="0" step="1" class="appraisal-price" placeholder="例: 5200" value="${values.appraisal_price ?? values.appraisalPrice ?? ''}" />
+        査定価格（円）
+        <input type="number" min="0" step="1" class="appraisal-price" placeholder="例: 4200" value="${Number(data.appraisal_price ?? data.appraisalPrice ?? 0) || ''}" />
       </label>
       <label>
         数量
-        <input type="number" min="1" step="1" class="appraisal-quantity" placeholder="1" value="${values.quantity ?? 1}" />
+        <input type="number" min="1" step="1" class="appraisal-quantity" placeholder="1" value="${Number(data.quantity || 1)}" />
       </label>
-      <div class="total-box">
+      <div class="inline-total-box">
         <span class="meta">総額</span>
-        <strong class="row-total-value">0円</strong>
-      </div>
-      <div class="diff-box">
-        <span class="meta">基準との差額</span>
-        <strong class="row-diff-value">0円</strong>
+        <strong class="appraisal-total">0円</strong>
       </div>
     </div>
   `
+
+  const updateRowTotal = () => {
+    const price = Number(row.querySelector('.appraisal-price').value || 0)
+    const quantity = Math.max(1, Number(row.querySelector('.appraisal-quantity').value || 1))
+    row.querySelector('.appraisal-total').textContent = formatYen(calcTotal(price, quantity))
+    updatePreview()
+  }
 
   row.querySelector('.remove-entry').addEventListener('click', () => {
     row.remove()
@@ -285,11 +225,39 @@ function createAppraisalRow(values = {}) {
   })
 
   row.querySelectorAll('input').forEach((input) => {
-    input.addEventListener('input', updatePreview)
+    input.addEventListener('input', updateRowTotal)
   })
 
   appraisalsContainer.appendChild(row)
-  updatePreview()
+  updateRowTotal()
+}
+
+function collectBaselines() {
+  return [...baselinesContainer.querySelectorAll('.baseline-row')]
+    .map((row, index) => ({
+      label_order: index + 1,
+      shop_name: row.querySelector('.baseline-shop-name').value.trim(),
+      reference_price: Number(row.querySelector('.baseline-price').value || 0),
+      quantity: Math.max(1, Number(row.querySelector('.baseline-quantity').value || 1))
+    }))
+    .filter((row) => row.shop_name && Number.isFinite(row.reference_price) && row.reference_price >= 0 && Number.isFinite(row.quantity) && row.quantity >= 1)
+}
+
+function collectAppraisals() {
+  return [...appraisalsContainer.querySelectorAll('.appraisal-row')]
+    .map((row) => ({
+      shop_name: row.querySelector('.appraisal-shop-name').value.trim(),
+      appraisal_price: Number(row.querySelector('.appraisal-price').value || 0),
+      quantity: Math.max(1, Number(row.querySelector('.appraisal-quantity').value || 1))
+    }))
+    .filter((row) => row.shop_name && Number.isFinite(row.appraisal_price) && row.appraisal_price >= 0 && Number.isFinite(row.quantity) && row.quantity >= 1)
+}
+
+function updatePreview() {
+  const metrics = computeMetrics(collectBaselines(), collectAppraisals())
+  baselinePreview.textContent = formatYen(metrics.baselineMaxTotal)
+  maxAppraisalPreview.textContent = formatYen(metrics.maxAppraisalTotal)
+  gapPreview.textContent = formatYen(metrics.gap)
 }
 
 function resetFormToCreateMode() {
@@ -302,7 +270,7 @@ function resetFormToCreateMode() {
   createAppraisalRow()
   saveBtn.textContent = 'カードを登録'
   editModeBar.classList.add('hidden')
-  hideMessage()
+  updatePreview()
 }
 
 function startEditMode(cardId) {
@@ -316,26 +284,17 @@ function startEditMode(cardId) {
   baselinesContainer.innerHTML = ''
   appraisalsContainer.innerHTML = ''
 
-  const baselines = sortByOrderThenCreated(card.card_baselines)
-  const appraisals = [...(card.card_appraisals || [])]
+  sortBaselines(card.card_baselines).forEach((row) => createBaselineRow(row))
+  sortAppraisals(card.card_appraisals).forEach((row) => createAppraisalRow(row))
 
-  if (baselines.length) {
-    baselines.forEach((row) => createBaselineRow(row))
-  } else {
-    createBaselineRow()
-  }
-
-  if (appraisals.length) {
-    appraisals.forEach((row) => createAppraisalRow(row))
-  } else {
-    createAppraisalRow()
-  }
+  if (!card.card_baselines?.length) createBaselineRow()
+  if (!card.card_appraisals?.length) createAppraisalRow()
 
   saveBtn.textContent = '変更を保存'
   editModeText.textContent = `「${card.card_name}」を編集中です。画像を変えない場合はそのまま保存できます。`
   editModeBar.classList.remove('hidden')
-  window.scrollTo({ top: 0, behavior: 'smooth' })
   updatePreview()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 async function refreshSession() {
@@ -356,11 +315,12 @@ function toggleUiBySession() {
   userEmail.textContent = currentSession?.user?.email || ''
 
   if (signedIn) {
-    loadEverything()
+    loadAllData()
   } else {
     groupsList.innerHTML = ''
-    loadedGroups = []
     loadedCards = []
+    loadedGroups = []
+    updateGroupSuggestions()
     resetFormToCreateMode()
   }
 }
@@ -388,7 +348,7 @@ async function loginWithMagicLink(event) {
     return
   }
 
-  showMessage('ログイン用メールを送信しました。メール内のリンクをこのURLへ戻る形で開いてください。', 'info')
+  showMessage('ログイン用メールを送信しました。メール内のリンクからこの画面へ戻ってください。', 'info')
 }
 
 async function signOut() {
@@ -403,65 +363,64 @@ async function signOut() {
 async function uploadImage(file, userId) {
   const safeName = sanitizeFileName(file.name)
   const filePath = `${userId}/${crypto.randomUUID()}-${safeName}`
-  const { error } = await supabaseClient.storage.from(BUCKET).upload(filePath, file, {
-    cacheControl: '3600',
-    upsert: false
-  })
+
+  const { error } = await supabaseClient.storage
+    .from(BUCKET)
+    .upload(filePath, file, { cacheControl: '3600', upsert: false })
+
   if (error) throw error
   return filePath
 }
 
-async function getOrCreateGroup(groupName) {
-  const cleanName = groupName.trim()
-  const existing = loadedGroups.find((group) => group.group_name === cleanName)
-  if (existing) return existing
-
-  const { data, error } = await supabaseClient
-    .from('appraisal_groups')
-    .insert({
-      user_id: currentSession.user.id,
-      group_name: cleanName,
-      updated_at: currentIso()
-    })
-    .select('id, group_name, created_at, updated_at')
-    .single()
-
-  if (error) throw error
-  loadedGroups = [...loadedGroups, data]
-  updateGroupSuggestions()
-  return data
-}
-
-async function touchGroup(groupId) {
-  if (!groupId) return
-  await supabaseClient
-    .from('appraisal_groups')
-    .update({ updated_at: currentIso() })
-    .eq('id', groupId)
-}
-
-async function tryRemoveImageIfUnused(imagePath, excludeCardId = null) {
+async function removeImageIfUnused(imagePath, excludingCardId = null) {
   if (!imagePath) return
 
   let query = supabaseClient
     .from('cards')
-    .select('id')
+    .select('id', { count: 'exact', head: false })
     .eq('image_path', imagePath)
 
-  if (excludeCardId) {
-    query = query.neq('id', excludeCardId)
+  if (excludingCardId) {
+    query = query.neq('id', excludingCardId)
   }
 
-  const { data, error } = await query.limit(1)
+  const { data, error } = await query
   if (error) {
     console.warn(error)
     return
   }
 
-  if (!data || data.length === 0) {
+  if ((data || []).length === 0) {
     const { error: removeError } = await supabaseClient.storage.from(BUCKET).remove([imagePath])
     if (removeError) console.warn(removeError)
   }
+}
+
+async function ensureGroup(groupName) {
+  const trimmed = groupName.trim()
+  const found = loadedGroups.find((group) => group.group_name === trimmed)
+  if (found) return found
+
+  const now = new Date().toISOString()
+  const { data, error } = await supabaseClient
+    .from('appraisal_groups')
+    .insert({
+      user_id: currentSession.user.id,
+      group_name: trimmed,
+      created_at: now,
+      updated_at: now
+    })
+    .select('id, group_name, created_at, updated_at')
+    .single()
+
+  if (error) throw error
+  loadedGroups.push(data)
+  updateGroupSuggestions()
+  return data
+}
+
+function getGroupNameById(groupId) {
+  return loadedGroups.find((group) => group.id === groupId)?.group_name || '未分類'
 }
 
 async function saveCard(event) {
@@ -473,15 +432,16 @@ async function saveCard(event) {
     return
   }
 
-  const file = imageInput.files?.[0]
   const groupName = groupNameInput.value.trim()
   const cardName = cardNameInput.value.trim()
-  const baselines = collectBaselineRows()
-  const appraisals = collectAppraisalRows()
+  const baselines = collectBaselines()
+  const appraisals = collectAppraisals()
   const metrics = computeMetrics(baselines, appraisals)
+  const firstBaseline = baselines[0] || { shop_name: '', reference_price: 0 }
+  const file = imageInput.files?.[0]
 
   if (!groupName) {
-    showMessage('査定グループ名を入力してください。', 'error')
+    showMessage('カードグループを入力してください。', 'error')
     return
   }
   if (!cardName) {
@@ -497,107 +457,132 @@ async function saveCard(event) {
     return
   }
   if (baselines.length === 0) {
-    showMessage('基準とする最大価格を 1 件以上入力してください。', 'error')
+    showMessage('基準とする最大価格を1件以上入力してください。', 'error')
     return
   }
 
   saveBtn.disabled = true
 
   try {
-    const group = await getOrCreateGroup(groupName)
+    const group = await ensureGroup(groupName)
     let imagePath = editingImagePath
 
     if (file) {
       imagePath = await uploadImage(file, currentSession.user.id)
     }
 
-    const bestBaseline = metrics.bestBaseline || baselines[0]
-    const payload = {
-      user_id: currentSession.user.id,
-      group_id: group.id,
-      card_name: cardName,
-      image_path: imagePath,
-      appraisal_price: metrics.maxAppraisalTotal,
-      baseline_shop_name: bestBaseline?.shopName ?? bestBaseline?.shop_name ?? null,
-      baseline_highest_price: metrics.baselineMaxTotal,
-      updated_at: currentIso()
-    }
-
-    let cardId = editingCardId
-
     if (editingCardId) {
-      const { error: cardUpdateError } = await supabaseClient
+      const { error: updateCardError } = await supabaseClient
         .from('cards')
-        .update(payload)
+        .update({
+          group_id: group.id,
+          card_name: cardName,
+          image_path: imagePath,
+          appraisal_price: 0,
+          baseline_shop_name: firstBaseline.shop_name,
+          baseline_highest_price: firstBaseline.reference_price,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', editingCardId)
 
-      if (cardUpdateError) throw cardUpdateError
+      if (updateCardError) throw updateCardError
 
       const { error: deleteBaselinesError } = await supabaseClient
         .from('card_baselines')
         .delete()
         .eq('card_id', editingCardId)
-
       if (deleteBaselinesError) throw deleteBaselinesError
 
       const { error: deleteAppraisalsError } = await supabaseClient
         .from('card_appraisals')
         .delete()
         .eq('card_id', editingCardId)
-
       if (deleteAppraisalsError) throw deleteAppraisalsError
 
-      if (file && editingImagePath && editingImagePath !== imagePath) {
-        await tryRemoveImageIfUnused(editingImagePath, editingCardId)
+      if (baselines.length) {
+        const { error: insertBaselinesError } = await supabaseClient
+          .from('card_baselines')
+          .insert(baselines.map((row) => ({
+            user_id: currentSession.user.id,
+            card_id: editingCardId,
+            label_order: row.label_order,
+            shop_name: row.shop_name,
+            reference_price: row.reference_price,
+            quantity: row.quantity,
+            updated_at: new Date().toISOString()
+          })))
+        if (insertBaselinesError) throw insertBaselinesError
       }
+
+      if (appraisals.length) {
+        const { error: insertAppraisalsError } = await supabaseClient
+          .from('card_appraisals')
+          .insert(appraisals.map((row) => ({
+            user_id: currentSession.user.id,
+            card_id: editingCardId,
+            shop_name: row.shop_name,
+            appraisal_price: row.appraisal_price,
+            quantity: row.quantity,
+            updated_at: new Date().toISOString()
+          })))
+        if (insertAppraisalsError) throw insertAppraisalsError
+      }
+
+      if (file && editingImagePath && editingImagePath !== imagePath) {
+        await removeImageIfUnused(editingImagePath, editingCardId)
+      }
+
+      showMessage('カード情報を更新しました。', 'info')
     } else {
-      const { data: insertedCard, error: cardInsertError } = await supabaseClient
+      const { data: insertedCard, error: insertCardError } = await supabaseClient
         .from('cards')
-        .insert(payload)
+        .insert({
+          user_id: currentSession.user.id,
+          group_id: group.id,
+          card_name: cardName,
+          appraisal_price: 0,
+          image_path: imagePath,
+          baseline_shop_name: firstBaseline.shop_name,
+          baseline_highest_price: firstBaseline.reference_price,
+          updated_at: new Date().toISOString()
+        })
         .select('id')
         .single()
 
-      if (cardInsertError) throw cardInsertError
-      cardId = insertedCard.id
-    }
+      if (insertCardError) throw insertCardError
 
-    const baselineRows = baselines.map((row) => ({
-      user_id: currentSession.user.id,
-      card_id: cardId,
-      label_order: row.labelOrder,
-      shop_name: row.shopName,
-      reference_price: row.referencePrice,
-      quantity: row.quantity,
-      updated_at: currentIso()
-    }))
-
-    const appraisalRows = appraisals.map((row) => ({
-      user_id: currentSession.user.id,
-      card_id: cardId,
-      shop_name: row.shopName,
-      appraisal_price: row.appraisalPrice,
-      quantity: row.quantity,
-      updated_at: currentIso()
-    }))
-
-    if (baselineRows.length) {
-      const { error: baselineInsertError } = await supabaseClient
+      const { error: insertBaselinesError } = await supabaseClient
         .from('card_baselines')
-        .insert(baselineRows)
-      if (baselineInsertError) throw baselineInsertError
+        .insert(baselines.map((row) => ({
+          user_id: currentSession.user.id,
+          card_id: insertedCard.id,
+          label_order: row.label_order,
+          shop_name: row.shop_name,
+          reference_price: row.reference_price,
+          quantity: row.quantity,
+          updated_at: new Date().toISOString()
+        })))
+      if (insertBaselinesError) throw insertBaselinesError
+
+      if (appraisals.length) {
+        const { error: insertAppraisalsError } = await supabaseClient
+          .from('card_appraisals')
+          .insert(appraisals.map((row) => ({
+            user_id: currentSession.user.id,
+            card_id: insertedCard.id,
+            shop_name: row.shop_name,
+            appraisal_price: row.appraisal_price,
+            quantity: row.quantity,
+            updated_at: new Date().toISOString()
+          })))
+        if (insertAppraisalsError) throw insertAppraisalsError
+      }
+
+      showMessage('カードを保存しました。', 'info')
     }
 
-    if (appraisalRows.length) {
-      const { error: appraisalInsertError } = await supabaseClient
-        .from('card_appraisals')
-        .insert(appraisalRows)
-      if (appraisalInsertError) throw appraisalInsertError
-    }
-
-    await touchGroup(group.id)
-    showMessage(editingCardId ? 'カード情報を更新しました。' : '保存しました。', 'info')
     resetFormToCreateMode()
-    await loadEverything()
+    await loadAllData()
   } catch (error) {
     showMessage(error.message || '保存に失敗しました。', 'error')
   } finally {
@@ -605,133 +590,171 @@ async function saveCard(event) {
   }
 }
 
-function renderBaselineList(card) {
-  const baselines = sortByOrderThenCreated(card.card_baselines)
-  if (!baselines.length) {
-    return '<div class="empty">基準価格の登録がありません。</div>'
-  }
-
-  return `
-    <div class="mini-list">
-      ${baselines.map((row, index) => {
-        const total = calcTotal(row.reference_price, row.quantity)
-        return `
-          <div class="mini-item baseline-mini">
-            <div class="mini-title-row">
-              <strong>${escapeHtml(baselineLabel(index))}</strong>
-              <span class="badge">×${Number(row.quantity || 1)}</span>
-            </div>
-            <div class="meta">${escapeHtml(row.shop_name)}</div>
-            <div class="mini-grid">
-              <div>
-                <div class="meta">単価</div>
-                <strong>${formatYen(row.reference_price)}</strong>
-              </div>
-              <div>
-                <div class="meta">数量</div>
-                <strong>${Number(row.quantity || 1)}枚</strong>
-              </div>
-              <div>
-                <div class="meta">総額</div>
-                <strong>${formatYen(total)}</strong>
-              </div>
-            </div>
-          </div>
-        `
-      }).join('')}
-    </div>
-  `
+function buildBaselineMiniItems(card) {
+  return computeMetrics(card.card_baselines, card.card_appraisals).baselines
+    .map((row) => `
+      <div class="mini-item baseline-mini">
+        <div class="mini-label">${escapeHtml(row.label)}</div>
+        <div class="mini-shop">${escapeHtml(row.shop_name)}</div>
+        <div class="mini-meta">単価 ${formatYen(row.reference_price)} / ×${row.quantity}</div>
+        <div class="mini-value">${formatYen(row.total)}</div>
+      </div>
+    `)
+    .join('')
 }
 
-function renderAppraisalList(card, baselineMaxTotal) {
-  const appraisals = [...(card.card_appraisals || [])]
-  if (!appraisals.length) {
-    return '<div class="empty">まだ査定価格の登録がありません。</div>'
-  }
-
-  return `
-    <div class="mini-list">
-      ${appraisals.map((row) => {
-        const total = calcTotal(row.appraisal_price, row.quantity)
-        const diff = baselineMaxTotal - total
-        return `
-          <div class="mini-item">
-            <div class="mini-title-row">
-              <strong>${escapeHtml(row.shop_name)}</strong>
-              <span class="badge">×${Number(row.quantity || 1)}</span>
-            </div>
-            <div class="mini-grid">
-              <div>
-                <div class="meta">単価</div>
-                <strong>${formatYen(row.appraisal_price)}</strong>
-              </div>
-              <div>
-                <div class="meta">総額</div>
-                <strong>${formatYen(total)}</strong>
-              </div>
-              <div>
-                <div class="meta">基準との差額</div>
-                <strong class="${getDiffClass(diff)}">${formatYen(diff)}</strong>
-              </div>
-            </div>
-          </div>
-        `
-      }).join('')}
-    </div>
-  `
+function buildAppraisalRows(card) {
+  const metrics = computeMetrics(card.card_baselines, card.card_appraisals)
+  return metrics.appraisals.length
+    ? metrics.appraisals.map((row) => `
+      <tr>
+        <td>${escapeHtml(row.shop_name)}</td>
+        <td>${formatYen(row.appraisal_price)}</td>
+        <td>×${row.quantity}</td>
+        <td>${formatYen(row.total)}</td>
+        <td>${formatYen(metrics.baselineMaxTotal - row.total)}</td>
+      </tr>
+    `).join('')
+    : `
+      <tr>
+        <td colspan="5" class="empty-cell">まだ査定価格の登録がありません。</td>
+      </tr>
+    `
 }
 
 function buildCardHtml(card) {
-  const metrics = computeMetrics(card.card_baselines || [], card.card_appraisals || [])
-  const publicUrl = card.image_path
-    ? supabaseClient.storage.from(BUCKET).getPublicUrl(card.image_path).data.publicUrl
-    : ''
+  const metrics = computeMetrics(card.card_baselines, card.card_appraisals)
+  const publicUrl = supabaseClient.storage.from(BUCKET).getPublicUrl(card.image_path).data.publicUrl
 
   return `
-    <article class="card-item">
-      <div class="card-item-top">
-        <img class="card-image" src="${escapeHtml(publicUrl)}" alt="${escapeHtml(card.card_name)}" />
-        <div class="card-head">
-          <div class="card-title-row">
-            <div>
-              <div class="meta">カードグループ：${escapeHtml(card.group_name || '未分類')}</div>
-              <h3>${escapeHtml(card.card_name)}</h3>
-            </div>
-            <div class="card-actions">
-              <button type="button" class="secondary small js-edit-card" data-card-id="${card.id}">編集</button>
-              <button type="button" class="secondary small js-duplicate-card" data-card-id="${card.id}">複製</button>
-              <button type="button" class="danger small js-delete-card" data-card-id="${card.id}" data-image-path="${escapeHtml(card.image_path)}">削除</button>
-            </div>
+    <article class="card-item" data-card-id="${card.id}">
+      <div class="card-image-wrap">
+        <img class="card-image" src="${publicUrl}" alt="${escapeHtml(card.card_name)}" />
+      </div>
+      <div class="card-body">
+        <div class="row between center wrap-gap">
+          <div>
+            <h3 class="card-title">${escapeHtml(card.card_name)}</h3>
+            <p class="meta">更新日: ${new Date(card.updated_at || card.created_at).toLocaleString('ja-JP')}</p>
           </div>
-          <div class="meta">登録日: ${new Date(card.created_at).toLocaleString('ja-JP')}</div>
-          <div class="card-summary">
-            <div class="price-box">
-              <div class="meta">基準とする最大価格</div>
-              <strong>${formatYen(metrics.baselineMaxTotal)}</strong>
-            </div>
-            <div class="price-box">
-              <div class="meta">最高査定価格</div>
-              <strong>${formatYen(metrics.maxAppraisalTotal)}</strong>
-            </div>
-            <div class="price-box">
-              <div class="meta">最大差額</div>
-              <strong class="${getDiffClass(metrics.gap)}">${formatYen(metrics.gap)}</strong>
-            </div>
+          <div class="card-actions">
+            <button type="button" class="secondary small edit-card" data-card-id="${card.id}">編集</button>
+            <button type="button" class="secondary small duplicate-card" data-card-id="${card.id}">複製</button>
+            <button type="button" class="danger small delete-card" data-card-id="${card.id}" data-image-path="${escapeHtml(card.image_path)}">削除</button>
           </div>
+        </div>
+
+        <div class="card-summary">
+          <div class="price-box">
+            <div class="meta">基準とする最大価格</div>
+            <strong class="price-value">${formatYen(metrics.baselineMaxTotal)}</strong>
+          </div>
+          <div class="price-box">
+            <div class="meta">最高査定価格</div>
+            <strong class="price-value accent-red">${formatYen(metrics.maxAppraisalTotal)}</strong>
+          </div>
+          <div class="price-box">
+            <div class="meta">最大差額</div>
+            <strong class="price-value">${formatYen(metrics.gap)}</strong>
+          </div>
+        </div>
+
+        <section class="mini-section">
+          <div class="section-kicker">基準とする価格</div>
+          <div class="baseline-mini-grid">
+            ${buildBaselineMiniItems(card)}
+          </div>
+        </section>
+
+        <section class="table-section">
+          <div class="section-kicker">実際の査定価格</div>
+          <div class="table-wrap">
+            <table class="store-table">
+              <thead>
+                <tr>
+                  <th>店舗名</th>
+                  <th>単価</th>
+                  <th>数量</th>
+                  <th>総額</th>
+                  <th>基準との差額</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${buildAppraisalRows(card)}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </article>
+  `
+}
+
+function buildGroupHtml(group) {
+  const cards = [...group.cards].sort((a, b) => new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime())
+  const totals = cards.reduce((acc, card) => {
+    const metrics = computeMetrics(card.card_baselines, card.card_appraisals)
+    acc.baseline += metrics.baselineMaxTotal
+    acc.appraisal += metrics.maxAppraisalTotal
+    acc.gap += metrics.gap
+    return acc
+  }, { baseline: 0, appraisal: 0, gap: 0 })
+
+  return `
+    <section class="group-block" data-group-id="${group.id || ''}">
+      <div class="group-head row between center wrap-gap">
+        <div>
+          <div class="group-label">カードグループ：<span>${escapeHtml(group.group_name)}</span></div>
+          <p class="meta">カード枚数: ${cards.length}件</p>
+        </div>
+        <div class="group-actions">
+          ${group.id ? `<button type="button" class="secondary small rename-group" data-group-id="${group.id}">グループ名を変更</button>` : ''}
+          ${group.id ? `<button type="button" class="secondary small duplicate-group" data-group-id="${group.id}">グループを複製</button>` : ''}
         </div>
       </div>
 
-      <section class="card-section">
-        <h4>基準とする最大価格の候補</h4>
-        ${renderBaselineList(card)}
-      </section>
+      <div class="summary-box summary-grid three group-summary-box">
+        <div>
+          <div class="meta">基準とする最大価格 合計</div>
+          <strong>${formatYen(totals.baseline)}</strong>
+        </div>
+        <div>
+          <div class="meta">最高査定価格 合計</div>
+          <strong class="accent-red">${formatYen(totals.appraisal)}</strong>
+        </div>
+        <div>
+          <div class="meta">最大差額 合計</div>
+          <strong>${formatYen(totals.gap)}</strong>
+        </div>
+      </div>
 
-      <section class="card-section">
-        <h4>店舗ごとの査定価格</h4>
-        ${renderAppraisalList(card, metrics.baselineMaxTotal)}
-      </section>
-    </article>
+      <div class="cards-grid">
+        ${cards.map(buildCardHtml).join('')}
+      </div>
+    </section>
   `
+}
+
+function bindRenderedButtons() {
+  groupsList.querySelectorAll('.edit-card').forEach((button) => {
+    button.addEventListener('click', () => startEditMode(button.dataset.cardId))
+  })
+
+  groupsList.querySelectorAll('.delete-card').forEach((button) => {
+    button.addEventListener('click', () => deleteCard(button.dataset.cardId, button.dataset.imagePath))
+  })
+
+  groupsList.querySelectorAll('.duplicate-card').forEach((button) => {
+    button.addEventListener('click', () => duplicateCard(button.dataset.cardId))
+  })
+
+  groupsList.querySelectorAll('.duplicate-group').forEach((button) => {
+    button.addEventListener('click', () => duplicateGroup(button.dataset.groupId))
+  })
+
+  groupsList.querySelectorAll('.rename-group').forEach((button) => {
+    button.addEventListener('click', () => renameGroup(button.dataset.groupId))
+  })
 }
 
 function renderGroups() {
@@ -741,70 +764,35 @@ function renderGroups() {
   }
 
   const groupsById = new Map()
+
   loadedGroups.forEach((group) => {
     groupsById.set(group.id, { ...group, cards: [] })
   })
 
   loadedCards.forEach((card) => {
-    const key = card.group_id || 'ungrouped'
+    const key = card.group_id || '__ungrouped__'
     if (!groupsById.has(key)) {
       groupsById.set(key, {
-        id: key,
-        group_name: card.group_name || '未分類',
+        id: null,
+        group_name: '未分類',
         cards: []
       })
     }
     groupsById.get(key).cards.push(card)
   })
 
-  const groupBlocks = [...groupsById.values()]
-    .filter((group) => group.cards?.length)
-    .sort((a, b) => (a.group_name || '').localeCompare(b.group_name || '', 'ja'))
-    .map((group) => {
-      const cards = [...group.cards].sort((a, b) => new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime())
-      const totals = cards.reduce((acc, card) => {
-        const metrics = computeMetrics(card.card_baselines || [], card.card_appraisals || [])
-        acc.baseline += metrics.baselineMaxTotal
-        acc.appraisal += metrics.maxAppraisalTotal
-        acc.gap += metrics.gap
-        return acc
-      }, { baseline: 0, appraisal: 0, gap: 0 })
+  const orderedGroups = [...groupsById.values()].filter((group) => group.cards.length > 0)
+  orderedGroups.sort((a, b) => {
+    const aLatest = Math.max(...a.cards.map((card) => new Date(card.updated_at || card.created_at).getTime()))
+    const bLatest = Math.max(...b.cards.map((card) => new Date(card.updated_at || card.created_at).getTime()))
+    return bLatest - aLatest
+  })
 
-      return `
-        <section class="group-block">
-          <div class="group-head">
-            <div class="group-title-wrap">
-              <div class="group-label">カードグループ：${escapeHtml(group.group_name)}</div>
-              <div class="group-summary">
-                <div class="price-box">
-                  <div class="meta">基準とする最大価格 合計</div>
-                  <strong>${formatYen(totals.baseline)}</strong>
-                </div>
-                <div class="price-box">
-                  <div class="meta">最高査定価格 合計</div>
-                  <strong>${formatYen(totals.appraisal)}</strong>
-                </div>
-                <div class="price-box">
-                  <div class="meta">最大差額 合計</div>
-                  <strong class="${getDiffClass(totals.gap)}">${formatYen(totals.gap)}</strong>
-                </div>
-              </div>
-            </div>
-            <div class="group-actions">
-              <button type="button" class="secondary small js-duplicate-group" data-group-id="${group.id}">グループを複製</button>
-            </div>
-          </div>
-          <div class="cards-grid">
-            ${cards.map(buildCardHtml).join('')}
-          </div>
-        </section>
-      `
-    })
-
-  groupsList.innerHTML = groupBlocks.join('')
+  groupsList.innerHTML = orderedGroups.map(buildGroupHtml).join('')
+  bindRenderedButtons()
 }
 
-async function loadEverything() {
+async function loadAllData() {
   if (!currentSession?.user) return
 
   groupsList.innerHTML = '<div class="empty">読み込み中...</div>'
@@ -822,9 +810,6 @@ async function loadEverything() {
         group_id,
         card_name,
         image_path,
-        baseline_shop_name,
-        baseline_highest_price,
-        appraisal_price,
         created_at,
         updated_at,
         card_baselines (
@@ -853,7 +838,6 @@ async function loadEverything() {
     groupsList.innerHTML = ''
     return
   }
-
   if (cardsResult.error) {
     showMessage(cardsResult.error.message, 'error')
     groupsList.innerHTML = ''
@@ -861,12 +845,11 @@ async function loadEverything() {
   }
 
   loadedGroups = groupsResult.data || []
-  const groupNameMap = new Map(loadedGroups.map((group) => [group.id, group.group_name]))
   loadedCards = (cardsResult.data || []).map((card) => ({
     ...card,
-    group_name: groupNameMap.get(card.group_id) || '未分類',
-    card_baselines: sortByOrderThenCreated(card.card_baselines),
-    card_appraisals: [...(card.card_appraisals || [])]
+    group_name: getGroupNameById(card.group_id),
+    card_baselines: sortBaselines(card.card_baselines),
+    card_appraisals: sortAppraisals(card.card_appraisals)
   }))
 
   updateGroupSuggestions()
@@ -874,169 +857,168 @@ async function loadEverything() {
 }
 
 async function deleteCard(cardId, imagePath) {
-  const ok = window.confirm('このカードデータを削除しますか？')
+  const ok = window.confirm('このカードを削除しますか？')
   if (!ok) return
 
   try {
-    const { error } = await supabaseClient.from('cards').delete().eq('id', cardId)
+    const { error } = await supabaseClient
+      .from('cards')
+      .delete()
+      .eq('id', cardId)
+
     if (error) throw error
-    await tryRemoveImageIfUnused(imagePath, cardId)
-    showMessage('削除しました。', 'info')
-    await loadEverything()
+
+    await removeImageIfUnused(imagePath, cardId)
+
+    if (editingCardId === cardId) {
+      resetFormToCreateMode()
+    }
+
+    showMessage('カードを削除しました。', 'info')
+    await loadAllData()
   } catch (error) {
     showMessage(error.message || '削除に失敗しました。', 'error')
   }
 }
 
-function buildUniqueCopyName(baseName, existingNames) {
-  let candidate = `${baseName} のコピー`
-  let n = 2
-  while (existingNames.has(candidate)) {
-    candidate = `${baseName} のコピー ${n}`
-    n += 1
+function nextCopyName(baseName, usedNames) {
+  if (!usedNames.has(`${baseName} コピー`)) return `${baseName} コピー`
+
+  let i = 2
+  while (usedNames.has(`${baseName} コピー${i}`)) {
+    i += 1
   }
-  return candidate
+  return `${baseName} コピー${i}`
 }
 
-async function duplicateCard(cardId) {
+async function duplicateCard(cardId, targetGroupId = null) {
   const card = loadedCards.find((item) => item.id === cardId)
-  if (!card || !currentSession?.user) return
+  if (!card) return
+
+  const usedNames = new Set(loadedCards.filter((item) => item.group_id === (targetGroupId || card.group_id)).map((item) => item.card_name))
+  const duplicatedName = nextCopyName(card.card_name, usedNames)
+  const firstBaseline = sortBaselines(card.card_baselines)[0] || { shop_name: '', reference_price: 0 }
 
   try {
-    const metrics = computeMetrics(card.card_baselines || [], card.card_appraisals || [])
-    const { data: newCard, error: cardError } = await supabaseClient
+    const { data: insertedCard, error: insertCardError } = await supabaseClient
       .from('cards')
       .insert({
         user_id: currentSession.user.id,
-        group_id: card.group_id,
-        card_name: `${card.card_name}（コピー）`,
+        group_id: targetGroupId || card.group_id,
+        card_name: duplicatedName,
+        appraisal_price: 0,
         image_path: card.image_path,
-        appraisal_price: metrics.maxAppraisalTotal,
-        baseline_shop_name: metrics.bestBaseline?.shop_name || metrics.bestBaseline?.shopName || null,
-        baseline_highest_price: metrics.baselineMaxTotal,
-        updated_at: currentIso()
+        baseline_shop_name: firstBaseline.shop_name,
+        baseline_highest_price: firstBaseline.reference_price,
+        updated_at: new Date().toISOString()
       })
       .select('id')
       .single()
 
-    if (cardError) throw cardError
+    if (insertCardError) throw insertCardError
 
-    const baselines = sortByOrderThenCreated(card.card_baselines).map((row, index) => ({
-      user_id: currentSession.user.id,
-      card_id: newCard.id,
-      label_order: index + 1,
-      shop_name: row.shop_name,
-      reference_price: row.reference_price,
-      quantity: row.quantity,
-      updated_at: currentIso()
-    }))
-
-    const appraisals = (card.card_appraisals || []).map((row) => ({
-      user_id: currentSession.user.id,
-      card_id: newCard.id,
-      shop_name: row.shop_name,
-      appraisal_price: row.appraisal_price,
-      quantity: row.quantity,
-      updated_at: currentIso()
-    }))
-
-    if (baselines.length) {
-      const { error: baselineError } = await supabaseClient.from('card_baselines').insert(baselines)
+    if (card.card_baselines.length) {
+      const { error: baselineError } = await supabaseClient
+        .from('card_baselines')
+        .insert(sortBaselines(card.card_baselines).map((row, index) => ({
+          user_id: currentSession.user.id,
+          card_id: insertedCard.id,
+          label_order: index + 1,
+          shop_name: row.shop_name,
+          reference_price: row.reference_price,
+          quantity: row.quantity,
+          updated_at: new Date().toISOString()
+        })))
       if (baselineError) throw baselineError
     }
 
-    if (appraisals.length) {
-      const { error: appraisalError } = await supabaseClient.from('card_appraisals').insert(appraisals)
+    if (card.card_appraisals.length) {
+      const { error: appraisalError } = await supabaseClient
+        .from('card_appraisals')
+        .insert(card.card_appraisals.map((row) => ({
+          user_id: currentSession.user.id,
+          card_id: insertedCard.id,
+          shop_name: row.shop_name,
+          appraisal_price: row.appraisal_price,
+          quantity: row.quantity,
+          updated_at: new Date().toISOString()
+        })))
       if (appraisalError) throw appraisalError
     }
 
-    await touchGroup(card.group_id)
     showMessage('カードを複製しました。', 'info')
-    await loadEverything()
+    await loadAllData()
   } catch (error) {
     showMessage(error.message || 'カードの複製に失敗しました。', 'error')
   }
 }
 
 async function duplicateGroup(groupId) {
-  const targetGroup = loadedGroups.find((group) => group.id === groupId)
-  if (!targetGroup || !currentSession?.user) return
+  const sourceGroup = loadedGroups.find((group) => group.id === groupId)
+  if (!sourceGroup) return
 
-  const targetCards = loadedCards.filter((card) => card.group_id === groupId)
-  if (!targetCards.length) {
-    showMessage('複製対象のカードがありません。', 'error')
+  const groupCards = loadedCards.filter((card) => card.group_id === groupId)
+  if (!groupCards.length) {
+    showMessage('複製するカードがありません。', 'error')
     return
   }
 
-  try {
-    const existingNames = new Set(loadedGroups.map((group) => group.group_name))
-    const newGroupName = buildUniqueCopyName(targetGroup.group_name, existingNames)
+  const usedNames = new Set(loadedGroups.map((group) => group.group_name))
+  const duplicatedGroupName = nextCopyName(sourceGroup.group_name, usedNames)
 
-    const { data: newGroup, error: groupError } = await supabaseClient
+  try {
+    const { data: newGroup, error: insertGroupError } = await supabaseClient
       .from('appraisal_groups')
       .insert({
         user_id: currentSession.user.id,
-        group_name: newGroupName,
-        updated_at: currentIso()
+        group_name: duplicatedGroupName,
+        updated_at: new Date().toISOString()
       })
       .select('id, group_name, created_at, updated_at')
       .single()
 
-    if (groupError) throw groupError
+    if (insertGroupError) throw insertGroupError
 
-    for (const card of targetCards) {
-      const metrics = computeMetrics(card.card_baselines || [], card.card_appraisals || [])
-      const { data: insertedCard, error: cardInsertError } = await supabaseClient
-        .from('cards')
-        .insert({
-          user_id: currentSession.user.id,
-          group_id: newGroup.id,
-          card_name: card.card_name,
-          image_path: card.image_path,
-          appraisal_price: metrics.maxAppraisalTotal,
-          baseline_shop_name: metrics.bestBaseline?.shop_name || metrics.bestBaseline?.shopName || null,
-          baseline_highest_price: metrics.baselineMaxTotal,
-          updated_at: currentIso()
-        })
-        .select('id')
-        .single()
-
-      if (cardInsertError) throw cardInsertError
-
-      const baselines = sortByOrderThenCreated(card.card_baselines).map((row, index) => ({
-        user_id: currentSession.user.id,
-        card_id: insertedCard.id,
-        label_order: index + 1,
-        shop_name: row.shop_name,
-        reference_price: row.reference_price,
-        quantity: row.quantity,
-        updated_at: currentIso()
-      }))
-
-      const appraisals = (card.card_appraisals || []).map((row) => ({
-        user_id: currentSession.user.id,
-        card_id: insertedCard.id,
-        shop_name: row.shop_name,
-        appraisal_price: row.appraisal_price,
-        quantity: row.quantity,
-        updated_at: currentIso()
-      }))
-
-      if (baselines.length) {
-        const { error: baselineError } = await supabaseClient.from('card_baselines').insert(baselines)
-        if (baselineError) throw baselineError
-      }
-
-      if (appraisals.length) {
-        const { error: appraisalError } = await supabaseClient.from('card_appraisals').insert(appraisals)
-        if (appraisalError) throw appraisalError
-      }
+    for (const card of groupCards) {
+      await duplicateCard(card.id, newGroup.id)
     }
 
-    showMessage(`グループ「${newGroupName}」を作成して複製しました。`, 'info')
-    await loadEverything()
+    showMessage('カードグループを複製しました。', 'info')
+    await loadAllData()
   } catch (error) {
-    showMessage(error.message || 'グループの複製に失敗しました。', 'error')
+    showMessage(error.message || 'カードグループの複製に失敗しました。', 'error')
+  }
+}
+
+async function renameGroup(groupId) {
+  const group = loadedGroups.find((item) => item.id === groupId)
+  if (!group) return
+
+  const nextName = window.prompt('新しいカードグループ名を入力してください。', group.group_name)
+  if (nextName === null) return
+
+  const trimmed = nextName.trim()
+  if (!trimmed || trimmed === group.group_name) return
+
+  try {
+    const { error } = await supabaseClient
+      .from('appraisal_groups')
+      .update({
+        group_name: trimmed,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', groupId)
+
+    if (error) throw error
+
+    if (groupNameInput.value.trim() === group.group_name) {
+      groupNameInput.value = trimmed
+    }
+
+    showMessage('カードグループ名を更新しました。', 'info')
+    await loadAllData()
+  } catch (error) {
+    showMessage(error.message || 'カードグループ名の更新に失敗しました。', 'error')
   }
 }
 
@@ -1045,32 +1027,8 @@ signOutBtn.addEventListener('click', signOut)
 cardForm.addEventListener('submit', saveCard)
 addBaselineBtn.addEventListener('click', () => createBaselineRow())
 addAppraisalBtn.addEventListener('click', () => createAppraisalRow())
-reloadBtn.addEventListener('click', loadEverything)
+reloadBtn.addEventListener('click', loadAllData)
 cancelEditBtn.addEventListener('click', resetFormToCreateMode)
-
-groupsList.addEventListener('click', async (event) => {
-  const target = event.target.closest('button')
-  if (!target) return
-
-  if (target.classList.contains('js-edit-card')) {
-    startEditMode(target.dataset.cardId)
-    return
-  }
-
-  if (target.classList.contains('js-delete-card')) {
-    await deleteCard(target.dataset.cardId, target.dataset.imagePath)
-    return
-  }
-
-  if (target.classList.contains('js-duplicate-card')) {
-    await duplicateCard(target.dataset.cardId)
-    return
-  }
-
-  if (target.classList.contains('js-duplicate-group')) {
-    await duplicateGroup(target.dataset.groupId)
-  }
-})
 
 supabaseClient.auth.onAuthStateChange((_event, session) => {
   currentSession = session
@@ -1079,4 +1037,5 @@ supabaseClient.auth.onAuthStateChange((_event, session) => {
 
 createBaselineRow()
 createAppraisalRow()
+updatePreview()
 refreshSession()
