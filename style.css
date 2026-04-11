@@ -427,3 +427,201 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* ---- responsive fixes 2026-04-12 ---- */
+.section-head {
+  margin-bottom: 10px;
+}
+
+.section-head .small {
+  margin-bottom: 4px;
+}
+
+.entry-grid {
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr) minmax(0, 0.72fr) minmax(0, 0.95fr);
+}
+
+.inline-total-box {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.inline-total-box strong,
+.inline-total-box .baseline-total,
+.inline-total-box .appraisal-total {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  font-size: clamp(0.94rem, 1.2vw, 1.08rem);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+.group-head,
+.card-body > .row:first-child {
+  align-items: flex-start;
+}
+
+.group-head > :first-child,
+.card-body > .row:first-child > :first-child {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.group-actions,
+.card-actions {
+  flex: 0 1 auto;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.group-actions button,
+.card-actions button {
+  flex: 0 1 auto;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.card-summary {
+  display: flex;
+  justify-content: space-evenly;
+  align-items: stretch;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.card-summary .price-box {
+  flex: 1 1 145px;
+  min-width: 0;
+}
+
+.price-box strong,
+.card-summary .price-value {
+  display: block;
+  min-width: 0;
+  width: 100%;
+  font-size: clamp(0.9rem, 1.15vw, 1.2rem);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+.mini-section,
+.table-section,
+.table-wrap,
+.card-item,
+.card-body {
+  min-width: 0;
+}
+
+.table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.store-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+  font-size: clamp(12px, 1vw, 14px);
+}
+
+.store-table th,
+.store-table td {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+
+.baseline-mini-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.baseline-mini-grid .baseline-mini:first-child {
+  flex: 1 1 100%;
+  background: #f7f9ff;
+  border-color: #bfdbfe;
+}
+
+.baseline-mini-grid .baseline-mini:first-child .mini-label {
+  color: #1d4ed8;
+}
+
+.baseline-mini-grid .baseline-mini:first-child .mini-meta {
+  color: #1e40af;
+}
+
+.baseline-mini-grid .baseline-mini:not(:first-child) {
+  flex: 1 1 calc(50% - 4px);
+  max-width: calc(50% - 4px);
+  background: var(--orange-bg);
+  border-color: var(--orange-line);
+}
+
+.baseline-mini-grid .baseline-mini:not(:first-child) .mini-label {
+  color: var(--orange-text);
+}
+
+.baseline-mini-grid .baseline-mini:not(:first-child) .mini-meta {
+  color: #7c2d12;
+}
+
+@media (max-width: 1080px) {
+  .layout-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 860px) {
+  .entry-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .inline-total-box {
+    grid-column: span 2;
+  }
+
+  .group-actions,
+  .card-actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 760px) {
+  .summary-grid.three {
+    grid-template-columns: 1fr;
+  }
+
+  .card-summary {
+    justify-content: stretch;
+  }
+
+  .card-summary .price-box {
+    flex: 1 1 calc(50% - 4px);
+  }
+}
+
+@media (max-width: 560px) {
+  .entry-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .inline-total-box {
+    grid-column: auto;
+  }
+
+  .baseline-mini-grid .baseline-mini:not(:first-child),
+  .card-summary .price-box {
+    flex-basis: 100%;
+    max-width: 100%;
+  }
+}
